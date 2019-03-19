@@ -1,5 +1,6 @@
 #include <igvc_msgs/velocity_pair.h>
 #include <ros/ros.h>
+#include <igvc_utils/NodeUtils.hpp>
 
 void stepFunction(double velocity, ros::Publisher cmd_pub)
 {
@@ -29,12 +30,14 @@ void stepFunction(double velocity, ros::Publisher cmd_pub)
 
 int main(int argc, char** argv)
 {
-  ros::init(argc, argv, "probe_tester");
+  ros::init(argc, argv, "plant_probe");
   ros::NodeHandle nh;
 
+  double velocity_range;
+  igvc::getParam(nh, "veloctiy_range", velocity_range);
   ros::Publisher cmd_pub = nh.advertise<igvc_msgs::velocity_pair>("/motors", 1);
 
-  double velocity = -255;
+  double velocity = -velocity_range;
   ROS_INFO_STREAM("Starting probing sequence from -255 to 255...");
   while (ros::ok())
   {

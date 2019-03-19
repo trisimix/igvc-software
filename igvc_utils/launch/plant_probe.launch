@@ -1,0 +1,5 @@
+<launch>
+    <node name="plant_probe" pkg="igvc_utils" type="plant_probe" output="screen">
+        <param name="velocity_range" type="double" value="200" />
+    </node>
+</launch>
