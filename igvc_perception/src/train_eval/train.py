@@ -1,4 +1,5 @@
 import argparse
+import functools
 import cv2
 import numpy as np
 import os
@@ -14,7 +15,7 @@ from IGVCDataset import IGVCDataset
 import models.model
 import utils
 
-np.set_printoptions(threshold=np.nan)
+# np.set_printoptions(threshold=np.nan)
 torch.set_printoptions(precision=10)
 
 
@@ -60,6 +61,10 @@ parser.add_argument('--test', action='store_true', default=False,
                     help='Skip training, and evaluate a loaded model on test data.')
 parser.add_argument('--val_samples', type=int, default=10,
                     help='Number of validation samples to use from train data.')
+parser.add_argument('--add_distortion',type=bool,default=False,
+                    help='Add distortion to saturation and value channels of the image.')
+parser.add_argument('--distortion_percentage', type=float, default=0.1,
+                    help='Saturation and Value distortion percentage for images.')
 
 args = parser.parse_args()
 
@@ -91,13 +96,42 @@ elif args.test:
 else:
     model = models.model.UNet(args.im_size, args.kernel_size)
 
+def add_random_saturation_and_value(img, distortion_percentage):
+
+    """
+    Applies a randomly chosen saturtation and value distortion to the image within
+    bounds of the specified distortion_percentage.
+    """
+
+    # OpenCV HSV Ranges [{0,180}, {0,255}, {0,255}]
+    img = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
+
+    # calculate random distortion values
+    max_distortion = int(255.0 * distortion_percentage)
+    saturation_distortion = np.random.randint(-max_distortion, max_distortion)
+    value_distortion = np.random.randint(-max_distortion, max_distortion)
+
+    # apply saturation and value distortion
+    img[:,:,1] = np.clip(img[:,:,1] + saturation_distortion, 0, 255)
+    img[:,:,2] = np.clip(img[:,:,2] + value_distortion, 0, 255)
+
+    img = cv2.cvtColor(img, cv2.COLOR_HSV2RGB)
+    return img
+
+def augment_data(img, target):
+    """
+    Applies random data augmentation. To the input img and target
+    """
+    return img,target
+
 # Datasets and dataloaders.
 if not args.test:
-    train_dataset = IGVCDataset(train_txt, im_size=args.im_size, split='train', transform=transform, val_samples=args.val_samples)
+    train_dataset = IGVCDataset(train_txt, im_size=args.im_size, split='train', transform=transform, val_samples=args.val_samples,
+            preprocessor = functools.partial(add_random_saturation_and_value, distortion_percentage = args.distortion_percentage) if args.add_distortion else None)
     val_dataset = IGVCDataset(train_txt, im_size=args.im_size, split='val', transform=transform, val_samples=args.val_samples)
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, **kwargs)
     val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=args.batch_size, shuffle=True, **kwargs)
-    
+
     # Optmizer
     lr = args.lr
     print('Initial lr: %f.' % lr)
@@ -109,6 +143,7 @@ else:
 criterion = F.binary_cross_entropy
 if args.cuda:
     model.cuda()
+
 
 def train(epoch):
     iters = []
@@ -132,10 +167,12 @@ def train(epoch):
         loss.backward()
         optimizer.step()
 
-        if args.vis and batch_idx % args.log_interval == 0 and images.shape[0] == 1:
-            cv2.imshow('output: ', outputs.cpu().data.numpy()[0][0])
-            cv2.imshow('target: ', targets.cpu().data.numpy()[0][0])
+        if args.vis and (batch_idx % args.log_interval == 0):
+
+            cv2.imshow('output: ', np.hstack(tuple([outputs.cpu().data.numpy()[i][0] for i in range(outputs.cpu().data.numpy().shape[0])])))
+            cv2.imshow('target: ', np.hstack(tuple([targets.cpu().data.numpy()[i][0] for i in range(outputs.cpu().data.numpy().shape[0])])))
             cv2.waitKey(10)
+
 
         # Learning rate decay.
         if epoch % args.step_interval == 0 and epoch != 1 and batch_idx == 0:
@@ -214,4 +251,3 @@ else:
             torch.save(model.state_dict(), save_path)
         metrics_path = os.path.join(backup_dir, 'metrics.npy')
         np.save(metrics_path, metrics)
-
