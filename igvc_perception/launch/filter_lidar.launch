@@ -2,11 +2,18 @@
 
 <launch>
   <node name="filter_lidar" pkg="igvc_perception" type="filter_lidar" output="screen">
-      <param name="x_offset" value=".29"/>
-      <param name="y_offset" value=".03"/>
-      <param name="x_size" value=".4"/>
-      <param name="y_size" value=".4"/>
-      <param name="max_dist" value="15"/>
-      <param name="back_buffer" value =".61"/>
+      <param name="input_topic" value="/velodyne_points" />
+      <param name="output_topic" value="/scan/pointcloud"/>
+
+      <!-- Minimum distance to accept scans from relative to the lidar frame (m.) -->
+      <param name="x_front" type="double" value="1.0"/>
+      <param name="x_back" type="double" value="1.0"/>
+      <param name="y_left" type="double" value="1.0"/>
+      <param name="y_right" type="double" value="1.0"/>
+      <param name="z_up" type="double" value="1.0"/>
+      <param name="z_down" type="double" value="1.0"/>
+
+      <!-- Maximum distance to accept scans from relative to the lidar frame (m.) -->
+      <param name="maximum_distance" value="15"/>
     </node>
 </launch>
