@@ -299,7 +299,7 @@ CostComputation FieldDPlanner::computeCost(const Position& p, const Position& p_
     }
   }
 
-  return {x, y, v_s};
+  return { x, y, v_s };
 }
 
 float FieldDPlanner::getEdgePositionCost(const Position& p)

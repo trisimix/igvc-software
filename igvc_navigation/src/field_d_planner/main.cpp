@@ -1,19 +1,27 @@
 /**
-Solves for an optimal path using the Field D* incremental search algorithm.
+ * Temporary launch for Field D planner that allows for
+ * toggling between callback and service implementations for testing
+ */
+#include <ros/ros.h>
+#include <igvc_utils/NodeUtils.hpp>
 
-Field D* implementation details can be found in FieldDPlanner.h
-
-Author: Alejandro Escontrela <aescontrela3@gatech.edu>
-Date Created: January 23rd, 2018
-*/
-
-#include "FieldDPlanner.h"
-#include "Graph.h"
+#include "ros_field_d.h"
 
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "field_d_planner");
-  ros::NodeHandle nh;
-//  FieldDPlanner field_d_planner(&nh);
+  ros::NodeHandle pNh("~");
+
+  bool use_services = false;
+  igvc::param(pNh, "use_services", use_services, false);
+
+  if (use_services)
+  {
+    // TODO: Create services server for Field D
+  }
+  else
+  {
+    field_d::ROSFieldD planner;
+  }
   return 0;
 }

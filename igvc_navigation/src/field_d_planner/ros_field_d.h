@@ -9,17 +9,19 @@
 
 namespace field_d
 {
-class ROSFieldD {
- public:
+class ROSFieldD
+{
+public:
   ROSFieldD();
- private:
+
+private:
   void setupSubscribers();
   void setupPublishers();
   void getParams();
 
   void planPath();
 
-  void mapCallback(const igvc_msgs::mapConstPtr &msg);
+  void mapCallback(const igvc_msgs::mapConstPtr& msg);
   void waypointCallback(const geometry_msgs::PointStampedConstPtr& msg);
 
   ros::NodeHandle nh_;
@@ -40,5 +42,5 @@ class ROSFieldD {
   ros::Publisher nodes_updated_pub_;
 };
 
-}
-#endif //SRC_ROS_FIELD_D_H
+}  // namespace field_d
+#endif  // SRC_ROS_FIELD_D_H

@@ -8,7 +8,7 @@
 
 namespace field_d
 {
-FieldDService::FieldDService() {
-
+FieldDService::FieldDService()
+{
 }
-}
+}  // namespace field_d

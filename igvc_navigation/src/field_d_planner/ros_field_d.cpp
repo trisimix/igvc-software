@@ -4,12 +4,13 @@
  *
  * Author: Oswin So <oswinso@gmail.com>
  */
-#include <ros/node_handle.h>
 #include "ros_field_d.h"
+#include <ros/node_handle.h>
 
 namespace field_d
 {
-ROSFieldD::ROSFieldD() : nh_{}, pNh_{"~"} {
+ROSFieldD::ROSFieldD() : nh_{}, pNh_{ "~" }
+{
   setupSubscribers();
   setupPublishers();
   getParams();
@@ -43,7 +44,8 @@ void ROSFieldD::getParams()
   igvc::getParam(pNh_, "occupancy_threshold", planner_options_.occupancy_threshold_);
 }
 
-void ROSFieldD::planPath() {
+void ROSFieldD::planPath()
+{
   std::optional<PlannerResult> result = planner_.planPath(start, end);
   if (result)
   {
@@ -62,7 +64,8 @@ void ROSFieldD::planPath() {
   }
 }
 
-void ROSFieldD::mapCallback(const igvc_msgs::mapConstPtr &msg) {
+void ROSFieldD::mapCallback(const igvc_msgs::mapConstPtr &msg)
+{
   planner_.updateMap(msg);
 
   start.position.x = msg->x;
@@ -71,11 +74,12 @@ void ROSFieldD::mapCallback(const igvc_msgs::mapConstPtr &msg) {
   planPath();
 }
 
-void ROSFieldD::waypointCallback(const geometry_msgs::PointStampedConstPtr &msg) {
+void ROSFieldD::waypointCallback(const geometry_msgs::PointStampedConstPtr &msg)
+{
   end.position.x = msg->point.x;
   end.position.y = msg->point.y;
 
   planPath();
 }
 
-}
+}  // namespace field_d

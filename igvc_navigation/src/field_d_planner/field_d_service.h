@@ -6,12 +6,14 @@
 
 namespace field_d
 {
-class FieldDService {
- public:
+class FieldDService
+{
+public:
   FieldDService();
- private:
+
+private:
   FieldDPlanner planner;
 };
 
-}
-#endif //SRC_FIELD_D_SERVICE_H
+}  // namespace field_d
+#endif  // SRC_FIELD_D_SERVICE_H
