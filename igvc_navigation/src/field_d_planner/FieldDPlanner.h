@@ -71,58 +71,49 @@ struct CostComputation
   float x;
   float y;
   float cost;
+};
 
-  CostComputation(float x, float y, float cost)
-  {
-    this->x = x;
-    this->y = y;
-    this->cost = cost;
-  }
+struct PlannerOptions
+{
+  double maximum_distance_;     // maximum distance to goal node before warning messages spit out
+  bool publish_expanded_;       // publish an expanded pointcloud
+  double configuration_space_;  // configuration space
+  double goal_range_;           // distance from goal at which a node is considered the goal
+  bool follow_old_path_;        // follow the previously generated path if no optimal path currently exists
+  int lookahead_dist_;          // number of cell traversals to look ahead at when decising next position along path
+  float occupancy_threshold_;   // maximum occupancy probability before a cell is considered to have infinite traversal
+};
 
-  // overloaded assignment operator
-  CostComputation& operator=(const CostComputation& other)
-  {
-    this->x = other.x;
-    this->y = other.y;
-    this->cost = other.cost;
-
-    return *this;
-  }
+struct PlannerResult
+{
+  pcl::PointCloud<pcl::PointXYZRGB> expanded_cloud;
+  nav_msgs::Path path;
+  int num_nodes_expanded;
+  int num_nodes_updated;
 };
 
 class FieldDPlanner
 {
 public:
   // ---------- Node functionality ----------- //
-  FieldDPlanner(ros::NodeHandle* nodehandle);
-  ros::NodeHandle nh_;
+  FieldDPlanner() = default;
 
-  // subscribers
-  ros::Subscriber map_sub_;
-  ros::Subscriber waypoint_sub_;
-  // publishers
-  ros::Publisher expanded_pub_;
-  ros::Publisher nodes_expanded_pub_;
-  ros::Publisher nodes_updated_pub_;
-  ros::Publisher path_pub_;
+  void setOptions(const PlannerOptions& options);
 
-  // launch parameters
-  double maximum_distance_;     // maximum distance to goal node before warning messages spit out
-  bool publish_expanded_;       // publish an expanded pointcloud
-  double configuration_space_;  // configuration space
-  double goal_range_;           // distance from goal at which a node is considered the goal
-  double rate_;                 // path planning/replanning rate
-  bool follow_old_path_;        // follow the previously generated path if no optimal path currently exists
-  int lookahead_dist_;          // number of cell traversals to look ahead at when decising next position along path
-  float occupancy_threshold_;   // maximum occupancy probability before a cell is considered to have infinite traversal
-                                // cost
+  PlannerOptions options_;
 
   igvc_msgs::mapConstPtr map_;  // Most up-to-date map
   int x_initial_, y_initial_;   // Index for initial x and y location in search space
 
+  bool search_initialized_{};
   bool initialize_graph_ = true;  // set to true if the graph must be initialized
   bool goal_set_ = false;         // true if the goal has been set
   bool goal_changed_ = false;     // true if the goal changed and the graph must be re-initialized
+
+  std::optional<PlannerResult> planPath(const geometry_msgs::Pose& start, const geometry_msgs::Pose& end);
+
+  PlannerResult getPlannerResult(int num_nodes_updated, int num_nodes_expanded) const;
+
   /**
   Publish expanded nodes for visualization purposes. This is not a subscriber
   callback.
@@ -132,23 +123,23 @@ public:
           should be stored in
   @param[in] the publishes with which to publish the PCL pointcloud of expanded nodes
   */
-  void publish_expanded_set(pcl::PointCloud<pcl::PointXYZRGB>& expanded_cloud);
+  pcl::PointCloud<pcl::PointXYZRGB> getExpandedCloud() const;
   /**
       Set the current map to be used by the D* Lite search problem. The initial
       map is used to perform the first search through the occupancy grid (equivalent
       to A*). All maps thereafter are used to update edge costs for the search problem.
       @param[in] msg the map recieved on the "/map" topic
   */
-  void map_callback(const igvc_msgs::mapConstPtr& msg);
+  void updateMap(const igvc_msgs::mapConstPtr& msg);
   /**
     Assigns a valid goal to the graph search problem. Goal index obtained by
     converting from the /map frame goal coordinate to the graph index.
 
     @param[in] msg the message received on the "/waypoint" topic
   */
-  void waypoint_callback(const geometry_msgs::PointStampedConstPtr& msg);
+  void updateGoal(const geometry_msgs::Pose& msg);
 
-  void publish_path();
+  nav_msgs::Path getPath() const;
 
   // ---------- Path Planner Logic ----------- //
 
@@ -159,7 +150,7 @@ public:
   std::vector<Position> path_;
 
   // path additions made by one step of constructOptimalPath()
-  typedef std::pair<std::vector<Position>, float> path_additions;
+  using path_additions = std::pair<std::vector<Position>, float>;
 
   float goal_dist_;
 

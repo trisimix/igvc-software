@@ -14,6 +14,6 @@ int main(int argc, char** argv)
 {
   ros::init(argc, argv, "field_d_planner");
   ros::NodeHandle nh;
-  FieldDPlanner field_d_planner(&nh);
+//  FieldDPlanner field_d_planner(&nh);
   return 0;
 }

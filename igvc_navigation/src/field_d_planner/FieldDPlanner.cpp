@@ -1,109 +1,78 @@
 #include "FieldDPlanner.h"
 
-FieldDPlanner::FieldDPlanner(ros::NodeHandle* nodehandle) : nh_(*nodehandle)
+void FieldDPlanner::setOptions(const PlannerOptions& options)
 {
-  ros::NodeHandle pNh("~");
-
-  // subscribe to map for occupancy grid and waypoint for goal node
-  map_sub_ = nh_.subscribe("/map", 1, &FieldDPlanner::map_callback, this);
-  waypoint_sub_ = nh_.subscribe("/waypoint", 1, &FieldDPlanner::waypoint_callback, this);
-
-  // publish a 2D pointcloud of expanded nodes for visualization
-  pcl::PointCloud<pcl::PointXYZRGB> expanded_cloud;
-  expanded_pub_ = nh_.advertise<pcl::PointCloud<pcl::PointXYZRGB>>("/expanded/pointcloud", 1);
-  nodes_expanded_pub_ = nh_.advertise<std_msgs::Int32>("/expanded/num_nodes_expanded", 1);
-  nodes_updated_pub_ = nh_.advertise<std_msgs::Int32>("/expanded/num_nodes_updated", 1);
-  expanded_cloud.header.frame_id = "odom";
-
-  // publish path for path_follower
-  path_pub_ = nh_.advertise<nav_msgs::Path>("/path", 1);
-
-  igvc::getParam(pNh, "c_space", configuration_space_);
-  igvc::getParam(pNh, "maximum_distance", maximum_distance_);
-  igvc::getParam(pNh, "rate", rate_);
-  igvc::getParam(pNh, "goal_range", goal_range_);
-  igvc::getParam(pNh, "publish_expanded", publish_expanded_);
-  igvc::getParam(pNh, "follow_old_path", follow_old_path_);
-  igvc::getParam(pNh, "lookahead_dist", lookahead_dist_);
-  igvc::getParam(pNh, "occupancy_threshold", occupancy_threshold_, [](float x) { return x > 0.0 && x < 1.0; });
-
-  node_grid_.setConfigurationSpace(static_cast<float>(configuration_space_));
-  node_grid_.setOccupancyThreshold(static_cast<float>(occupancy_threshold_));
-  setGoalDistance(static_cast<float>(goal_range_));
-
-  ros::Rate rate(rate_);  // path update rate
-
-  int num_nodes_updated = 0;
-  int num_nodes_expanded = 0;
-
-  bool initialize_search = true;  // set to true if the search problem must be initialized
-
-  while (ros::ok())
-  {
-    ros::spinOnce();  // handle subscriber callbacks
-
-    // don't plan unless the map has been initialized and a goal node has been set
-    if (initialize_graph_)
-      continue;
-
-    // don't plan unless a goal node has been set
-    if (!goal_set_)
-      continue;
-
-    if (initialize_search)
-      initializeSearch();
-
-    if (goal_changed_)
-    {
-      ROS_INFO_STREAM("New Goal Received. Initializing Search...");
-      initialize_search = true;
-      goal_changed_ = false;
-      continue;
-    }
-
-    // gather cells with updated edge costs and update affected nodes
-    num_nodes_updated = updateNodesAroundUpdatedCells();
-    ROS_INFO_STREAM_COND(num_nodes_updated > 0, num_nodes_updated << " nodes updated");
-
-    // only update the graph if nodes have been updated
-    if ((num_nodes_updated > 0) || initialize_search)
-    {
-      ros::Time begin = ros::Time::now();
-      num_nodes_expanded = computeShortestPath();
-
-      double elapsed = (ros::Time::now() - begin).toSec();
-
-      ROS_INFO_STREAM_COND(num_nodes_expanded > 0, num_nodes_expanded << " nodes expanded in " << elapsed << "s.");
-
-      if (initialize_search)
-        initialize_search = false;
-    }
-    else
-    {
-      num_nodes_expanded = 0;
-    }
-
-    constructOptimalPath();
-
-    if (publish_expanded_)
-      publish_expanded_set(expanded_cloud);
-
-    // publish number of nodes expanded/updated
-    std_msgs::Int32 expanded_stats;
-    expanded_stats.data = num_nodes_expanded;
-    nodes_expanded_pub_.publish(expanded_stats);
-    expanded_stats.data = num_nodes_updated;
-    nodes_updated_pub_.publish(expanded_stats);
-
-    publish_path();
-
-    rate.sleep();
-  }
+  options_ = options;
+  node_grid_.setConfigurationSpace(static_cast<float>(options_.configuration_space_));
+  node_grid_.setOccupancyThreshold(static_cast<float>(options_.occupancy_threshold_));
+  setGoalDistance(static_cast<float>(options_.goal_range_));
 }
 
-void FieldDPlanner::publish_expanded_set(pcl::PointCloud<pcl::PointXYZRGB>& expanded_cloud)
+std::optional<PlannerResult> FieldDPlanner::planPath(const geometry_msgs::Pose& start, const geometry_msgs::Pose& end)
 {
-  expanded_cloud.clear();
+  updateGoal(end);
+
+  if (initialize_graph_ || !goal_set_)
+  {
+    return std::nullopt;
+  }
+
+  if (goal_changed_)
+  {
+    ROS_INFO_STREAM("New Goal Received. Initializing Search...");
+    search_initialized_ = false;
+    goal_changed_ = false;
+  }
+
+  if (!search_initialized_)
+  {
+    initializeSearch();
+  }
+
+  // gather cells with updated edge costs and update affected nodes
+  int num_nodes_updated = updateNodesAroundUpdatedCells();
+  ROS_INFO_STREAM_COND(num_nodes_updated > 0, num_nodes_updated << " nodes updated");
+
+  int num_nodes_expanded = 0;
+  // only update the graph if nodes have been updated
+  if ((num_nodes_updated > 0) || !search_initialized_)
+  {
+    ros::Time begin = ros::Time::now();
+    num_nodes_expanded = computeShortestPath();
+
+    double elapsed = (ros::Time::now() - begin).toSec();
+
+    ROS_INFO_STREAM_COND(num_nodes_expanded > 0, num_nodes_expanded << " nodes expanded in " << elapsed << "s.");
+
+    search_initialized_ = true;
+  }
+
+  constructOptimalPath();
+
+  PlannerResult result = getPlannerResult(num_nodes_updated, num_nodes_expanded);
+
+  return result;
+}
+
+PlannerResult FieldDPlanner::getPlannerResult(int num_nodes_updated, int num_nodes_expanded) const
+{
+  PlannerResult result{};
+
+  if (options_.publish_expanded_)
+  {
+    result.expanded_cloud = getExpandedCloud();
+  }
+  result.num_nodes_updated = num_nodes_updated;
+  result.num_nodes_expanded = num_nodes_expanded;
+  result.path = getPath();
+
+  return result;
+}
+
+pcl::PointCloud<pcl::PointXYZRGB> FieldDPlanner::getExpandedCloud() const
+{
+  pcl::PointCloud<pcl::PointXYZRGB> expanded_cloud;
+  expanded_cloud.points.reserve(expanded_map_.size());
 
   float max_g = -std::numeric_limits<float>::infinity();
 
@@ -136,21 +105,17 @@ void FieldDPlanner::publish_expanded_set(pcl::PointCloud<pcl::PointXYZRGB>& expa
       p.g = 125;
       p.b = static_cast<uint8_t>((std::get<0>(e.second) / max_g) * 255.0f);
     }
-    expanded_cloud.points.push_back(p);
+    expanded_cloud.points.emplace_back(p);
   }
-
-  expanded_pub_.publish(expanded_cloud);
+  return expanded_cloud;
 }
 
-void FieldDPlanner::map_callback(const igvc_msgs::mapConstPtr& msg)
+void FieldDPlanner::updateMap(const igvc_msgs::mapConstPtr& msg)
 {
-  map_ = msg;  // update current map
+  map_ = msg;
 
   if (initialize_graph_)
   {
-    // initial x and y coordinates of the graph search problem
-    x_initial_ = static_cast<int>(map_->x_initial);
-    y_initial_ = static_cast<int>(map_->y_initial);
     node_grid_.initializeGraph(map_);
     initialize_graph_ = false;
   }
@@ -160,11 +125,11 @@ void FieldDPlanner::map_callback(const igvc_msgs::mapConstPtr& msg)
   }
 }
 
-void FieldDPlanner::waypoint_callback(const geometry_msgs::PointStampedConstPtr& msg)
+void FieldDPlanner::updateGoal(const geometry_msgs::Pose& msg)
 {
   int goal_x, goal_y;
-  goal_x = static_cast<int>(std::round(msg->point.x / node_grid_.resolution_)) + x_initial_;
-  goal_y = static_cast<int>(std::round(msg->point.y / node_grid_.resolution_)) + y_initial_;
+  goal_x = static_cast<int>(std::round(msg.position.x / node_grid_.resolution_)) + x_initial_;
+  goal_y = static_cast<int>(std::round(msg.position.y / node_grid_.resolution_)) + y_initial_;
 
   Node new_goal(goal_x, goal_y);
 
@@ -179,13 +144,13 @@ void FieldDPlanner::waypoint_callback(const geometry_msgs::PointStampedConstPtr&
   ROS_INFO_STREAM((goal_changed_ ? "New" : "Same") << " waypoint received. Search Problem Goal = " << node_grid_.goal_
                                                    << ". Distance: " << distance_to_goal << "m.");
 
-  if (distance_to_goal > maximum_distance_)
+  if (distance_to_goal > options_.maximum_distance_)
   {
-    ROS_WARN_STREAM_THROTTLE(3, "Planning to waypoint more than " << maximum_distance_
+    ROS_WARN_STREAM_THROTTLE(3, "Planning to waypoint more than " << options_.maximum_distance_
                                                                   << "m. away - distance = " << distance_to_goal);
     goal_set_ = false;
   }
-  else if (distance_to_goal < goal_range_)
+  else if (distance_to_goal < options_.goal_range_)
   {
     ROS_INFO_STREAM_THROTTLE(3, "Waiting for new waypoint...");
     goal_set_ = false;
@@ -196,7 +161,7 @@ void FieldDPlanner::waypoint_callback(const geometry_msgs::PointStampedConstPtr&
   }
 }
 
-void FieldDPlanner::publish_path()
+nav_msgs::Path FieldDPlanner::getPath() const
 {
   nav_msgs::Path path_msg;
   path_msg.header.stamp = ros::Time::now();
@@ -204,7 +169,7 @@ void FieldDPlanner::publish_path()
 
   size_t num_poses = path_.size();
 
-  if (num_poses > 1 || !follow_old_path_)
+  if (num_poses > 1 || !options_.follow_old_path_)
   {
     for (size_t i = 0; i < num_poses; i++)
     {
@@ -226,9 +191,8 @@ void FieldDPlanner::publish_path()
     }
 
     path_msg.poses.back().pose.orientation = path_msg.poses[num_poses - 2].pose.orientation;
-
-    path_pub_.publish(path_msg);
   }
+  return path_msg;
 }
 
 void FieldDPlanner::setGoalDistance(float goal_dist)
@@ -335,7 +299,7 @@ CostComputation FieldDPlanner::computeCost(const Position& p, const Position& p_
     }
   }
 
-  return CostComputation(x, y, v_s);
+  return {x, y, v_s};
 }
 
 float FieldDPlanner::getEdgePositionCost(const Position& p)
@@ -498,7 +462,7 @@ void FieldDPlanner::constructOptimalPath()
   do
   {
     // move one step and calculate the optimal path additions (min 1, max 2)
-    pa = getPathAdditions(curr_pos, lookahead_dist_);
+    pa = getPathAdditions(curr_pos, options_.lookahead_dist_);
     path_.insert(path_.end(), pa.first.begin(), pa.first.end());
     min_cost = pa.second;
     curr_pos = path_.back();
