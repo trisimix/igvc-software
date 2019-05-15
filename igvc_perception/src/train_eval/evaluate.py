@@ -99,11 +99,12 @@ if __name__ == '__main__':
         if args.vis:
             cv2.imshow('input: ', img_tensor.cpu().data.numpy()[0][0])
             cv2.imshow('output: ', output_data)
+            #cv2.imwrite('output.png',output_data)
 
             if anno_dir:
                 cv2.imshow('gt: ', anno)
 
-            k = cv2.waitKey(50)
+            k = cv2.waitKey(0)
 
     if anno_dir:
         avg_accuracy /= len(img_names)
@@ -130,6 +131,6 @@ if __name__ == '__main__':
         plt.xlabel('Precision')
         plt.ylabel('Recall')
         plt.show()
-
-    pdb.set_trace()
+        if k == 27:         # wait for ESC key to exit
+            cv2.destroyAllWindows()
 
