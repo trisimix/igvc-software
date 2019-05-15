@@ -35,6 +35,8 @@ def main():
         os.listdir(args.annotation)
         n = len(line.split("/")) - 1
         test = line.split("/")[n].strip().replace("\n", "")
+        test = test.replace(".jpg", ".png")
+        print(test)
         if test in os.listdir(args.annotation):
             shutil.copy(test, osp.join(args.output_dir, 'annos'))
     
