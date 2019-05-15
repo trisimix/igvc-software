@@ -1,7 +1,7 @@
 import glob, os
 
 
-dataset_path = '/home/alejandro/Organizations/Vision Datasets/vision_dataset/old/imgs'
+dataset_path = '/home/yyajima/Desktop/data_igvc/imgs'
 
 # Percentage of images to be used for the test set
 percentage_test = 10;
