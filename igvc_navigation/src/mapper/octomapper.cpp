@@ -193,7 +193,6 @@ void Octomapper::insertPoints(struct pc_map_pair &pair, const PointCloud &pc, bo
 
   octomap::Pointcloud octo_cloud;
   PCL_to_Octomap(pc, octo_cloud);
-  octomap::KeySet keyset{};
 
   for (const auto &p : octo_cloud)
   {
@@ -203,6 +202,70 @@ void Octomapper::insertPoints(struct pc_map_pair &pair, const PointCloud &pc, bo
       pair.octree->updateNode(key, occupied, false);  // lazy_eval = false
     }
   }
+  pair.octree->setProbHit(old_prob_hit);
+  pair.octree->setProbMiss(old_prob_miss);
+}
+
+void Octomapper::insertPoints(struct pc_map_pair &pair, const PointCloud &occupied, const PointCloud &free,
+                              ProbabilityModel model) const
+{
+  double old_prob_hit = pair.octree->getProbHit();
+  double old_prob_miss = pair.octree->getProbMiss();
+
+  pair.octree->setProbHit(model.prob_hit);
+  pair.octree->setProbMiss(model.prob_miss);
+
+  // Insert occupied
+  octomap::Pointcloud octo_occupied;
+  PCL_to_Octomap(occupied, octo_occupied);
+  octomap::KeySet occupied_cells{};
+
+  for (const auto &p : octo_occupied)
+  {
+    octomap::OcTreeKey key;
+    if (pair.octree->coordToKeyChecked(p, key))
+    {
+      occupied_cells.insert(key);
+    }
+  }
+
+  // Insert free
+  octomap::Pointcloud octo_free;
+  PCL_to_Octomap(free, octo_free);
+  octomap::KeySet free_cells{};
+
+  for (const auto &p : octo_free)
+  {
+    octomap::OcTreeKey key;
+    if (pair.octree->coordToKeyChecked(p, key))
+    {
+      free_cells.insert(key);
+    }
+  }
+
+  // Remove from free if already in occupied
+  for (octomap::KeySet::iterator it = free_cells.begin(), end = free_cells.end(); it != end;)
+  {
+    if (occupied_cells.find(*it) != occupied_cells.end())
+    {
+      it = free_cells.erase(it);
+    }
+    else
+    {
+      ++it;
+    }
+  }
+
+  // Update free and occupied
+  for (const auto &free_cell : free_cells)
+  {
+    pair.octree->updateNode(free_cell, false, false);
+  }
+  for (const auto &occupied_cell : occupied_cells)
+  {
+    pair.octree->updateNode(occupied_cell, true, false);
+  }
+
   pair.octree->setProbHit(old_prob_hit);
   pair.octree->setProbMiss(old_prob_miss);
 }

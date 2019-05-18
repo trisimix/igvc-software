@@ -128,6 +128,7 @@ private:
 
   ProbabilityModel camera_probability_model_{};
   GroundFilterOptions ground_filter_options_{};
+  LowPassOptions low_pass_options_{};
   GroundPlane ground_plane_;
 
   bool use_ground_filter_;

@@ -151,6 +151,18 @@ public:
    */
   void insertPoints(struct pc_map_pair& pair, const PointCloud& pc, bool occupied, ProbabilityModel model) const;
 
+  /**
+   * Inserts the passed in points to the given pc_map_pair, with occupied being occupied and unoccupied being
+   * unoccupied, and having grid cells that have both occupied and unoccupied count as being occupied. on the variable
+   * passed in
+   * @param pair
+   * @param pc
+   * @param occupied
+   * @param model
+   */
+  void insertPoints(struct pc_map_pair& pair, const PointCloud& occupied, const PointCloud& unoccupied,
+                    ProbabilityModel model) const;
+
 private:
   void create_map(pc_map_pair& pair) const;
   void insert_free(const octomap::Pointcloud& scan, octomap::point3d origin, pc_map_pair& pair, bool lazy_eval) const;

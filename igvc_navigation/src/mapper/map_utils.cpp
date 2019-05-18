@@ -16,7 +16,7 @@ inline int discretize(radians angle, double angular_resolution)
   return static_cast<int>(std::round(coeff * angle));
 }
 
-void filterPointsBehind(const pcl::PointCloud<pcl::PointXYZ>& pc, pcl::PointCloud<pcl::PointXYZ>& filtered_pc,
+void filterPointsBehind(const pcl::PointCloud<pcl::PointXYZ> &pc, pcl::PointCloud<pcl::PointXYZ> &filtered_pc,
                         BehindFilterOptions options)
 {
   static double end_angle = -M_PI + options.angle / 2;
@@ -40,7 +40,7 @@ void filterPointsBehind(const pcl::PointCloud<pcl::PointXYZ>& pc, pcl::PointClou
   }
 }
 
-std::optional<GroundPlane> filterGroundPlane(const PointCloud& raw_pc, PointCloud& ground, PointCloud& nonground,
+std::optional<GroundPlane> filterGroundPlane(const PointCloud &raw_pc, PointCloud &ground, PointCloud &nonground,
                                              GroundFilterOptions options)
 {
   ground.header = raw_pc.header;
@@ -58,16 +58,16 @@ std::optional<GroundPlane> filterGroundPlane(const PointCloud& raw_pc, PointClou
   }
 }
 
-void projectTo2D(PointCloud& projected_pc)
+void projectTo2D(PointCloud &projected_pc)
 {
-  for (auto& point : projected_pc.points)
+  for (auto &point : projected_pc.points)
   {
     point.z = 0;
   }
 }
 
-std::optional<GroundPlane> ransacFilter(const PointCloud& raw_pc, PointCloud& ground, PointCloud& nonground,
-                                        const RANSACOptions& options)
+std::optional<GroundPlane> ransacFilter(const PointCloud &raw_pc, PointCloud &ground, PointCloud &nonground,
+                                        const RANSACOptions &options)
 {
   // Plane detection for ground removal
   pcl::ModelCoefficientsPtr coefficients(new pcl::ModelCoefficients);
@@ -121,7 +121,7 @@ std::optional<GroundPlane> ransacFilter(const PointCloud& raw_pc, PointCloud& gr
   }
 }
 
-void fallbackFilter(const PointCloud& raw_pc, PointCloud& ground, PointCloud& nonground, const FallbackOptions& options)
+void fallbackFilter(const PointCloud &raw_pc, PointCloud &ground, PointCloud &nonground, const FallbackOptions &options)
 {
   pcl::PassThrough<pcl::PointXYZ> fallback;
   fallback.setFilterFieldName("z");
@@ -132,14 +132,14 @@ void fallbackFilter(const PointCloud& raw_pc, PointCloud& ground, PointCloud& no
   fallback.filter(nonground);
 }
 
-void blur(cv::Mat& blurred_map, double kernel_size)
+void blur(cv::Mat &blurred_map, double kernel_size)
 {
   cv::Mat original = blurred_map.clone();
   cv::blur(blurred_map, blurred_map, cv::Size(kernel_size, kernel_size));
   cv::max(original, blurred_map, blurred_map);
 }
 
-void getEmptyPoints(const pcl::PointCloud<pcl::PointXYZ>& pc, pcl::PointCloud<pcl::PointXYZ>& empty_pc,
+void getEmptyPoints(const pcl::PointCloud<pcl::PointXYZ> &pc, pcl::PointCloud<pcl::PointXYZ> &empty_pc,
                     double angular_resolution, EmptyFilterOptions options)
 {
   // Iterate over pointcloud, insert discretized angles into set if within max range
@@ -168,8 +168,8 @@ void getEmptyPoints(const pcl::PointCloud<pcl::PointXYZ>& pc, pcl::PointCloud<pc
   }
 }
 
-void projectToPlane(PointCloud& projected_pc, const GroundPlane& ground_plane, const cv::Mat& image,
-                    const image_geometry::PinholeCameraModel& model, const tf::Transform& camera_to_world, bool is_line)
+void projectToPlane(PointCloud &projected_pc, const GroundPlane &ground_plane, const cv::Mat &image,
+                    const image_geometry::PinholeCameraModel &model, const tf::Transform &camera_to_world, bool is_line)
 {
   int nRows = image.rows;
   int nCols = image.cols;
@@ -177,7 +177,7 @@ void projectToPlane(PointCloud& projected_pc, const GroundPlane& ground_plane, c
   uchar match = is_line ? 255u : 0u;
 
   int i, j;
-  const uchar* p;
+  const uchar *p;
   for (i = 0; i < nRows; ++i)
   {
     p = image.ptr<uchar>(i);
@@ -210,15 +210,14 @@ void projectToPlane(PointCloud& projected_pc, const GroundPlane& ground_plane, c
 
         // projected_point = camera + ray*t
         tf::Point projected_point = camera_to_world.getOrigin() + transformed_ray * t;
-        projected_pc.points.emplace_back(pcl::PointXYZ(static_cast<float>(projected_point.x()),
-                                                       static_cast<float>(projected_point.y()),
-                                                       static_cast<float>(projected_point.z())));
+        projected_pc.points.emplace_back(
+            pcl::PointXYZ(static_cast<float>(projected_point.x()), static_cast<float>(projected_point.y()), 0.0));
       }
     }
   }
 }
 
-sensor_msgs::CameraInfoConstPtr scaleCameraInfo(const sensor_msgs::CameraInfoConstPtr& camera_info, double width,
+sensor_msgs::CameraInfoConstPtr scaleCameraInfo(const sensor_msgs::CameraInfoConstPtr &camera_info, double width,
                                                 double height)
 {
   sensor_msgs::CameraInfoPtr changed_camera_info = boost::make_shared<sensor_msgs::CameraInfo>(*camera_info);
@@ -242,8 +241,8 @@ sensor_msgs::CameraInfoConstPtr scaleCameraInfo(const sensor_msgs::CameraInfoCon
   return changed_camera_info;
 }
 
-void debugPublishPointCloud(const ros::Publisher& publisher, pcl::PointCloud<pcl::PointXYZ>& pointcloud,
-                            const uint64 stamp, std::string&& frame, bool debug)
+void debugPublishPointCloud(const ros::Publisher &publisher, pcl::PointCloud<pcl::PointXYZ> &pointcloud,
+                            const uint64 stamp, std::string &&frame, bool debug)
 {
   if (debug)
   {
@@ -251,5 +250,15 @@ void debugPublishPointCloud(const ros::Publisher& publisher, pcl::PointCloud<pcl
     pointcloud.header.frame_id = frame;
     publisher.publish(pointcloud);
   }
+}
+
+void lowPassGroundPlane(GroundPlane &old_plane, const GroundPlane &new_plane, LowPassOptions low_pass_options)
+{
+  double alpha = low_pass_options.alpha;
+
+  old_plane.a = alpha * old_plane.a + (1 - alpha) * new_plane.a;
+  old_plane.b = alpha * old_plane.b + (1 - alpha) * new_plane.b;
+  old_plane.c = alpha * old_plane.c + (1 - alpha) * new_plane.c;
+  old_plane.d = alpha * old_plane.d + (1 - alpha) * new_plane.d;
 }
 }  // namespace MapUtils

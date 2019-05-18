@@ -62,6 +62,11 @@ struct GroundPlane
   double d;
 };
 
+struct LowPassOptions
+{
+  double alpha;
+};
+
 namespace MapUtils
 {
 using radians = double;
@@ -137,7 +142,8 @@ void fallbackFilter(const PointCloud& raw_pc, PointCloud& ground, PointCloud& no
  * @param[in] is_line whether to project the lines or the empty_space
  */
 void projectToPlane(PointCloud& projected_pc, const GroundPlane& ground_plane, const cv::Mat& image,
-                    const image_geometry::PinholeCameraModel& model, const tf::Transform& camera_to_world, bool is_line);
+                    const image_geometry::PinholeCameraModel& model, const tf::Transform& camera_to_world,
+                    bool is_line);
 
 /**
  * Projects all points in projected_pc to z=0
@@ -161,6 +167,8 @@ void blur(cv::Mat& blurred_map, double kernel_size);
  */
 sensor_msgs::CameraInfoConstPtr scaleCameraInfo(const sensor_msgs::CameraInfoConstPtr& camera_info, double width,
                                                 double height);
+
+void lowPassGroundPlane(GroundPlane& old_plane, const GroundPlane& new_plane, LowPassOptions low_pass_options);
 
 inline bool withinRange(const pcl::PointXYZ& point, double range);
 
