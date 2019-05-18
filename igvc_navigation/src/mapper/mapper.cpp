@@ -187,6 +187,7 @@ void Mapper::insertSegmentedImage(cv::Mat&& image, const tf::Transform& base_to_
   if (!use_passed_in_pointcloud)
   {
     MapUtils::projectToPlane(projected_occupied_pc, ground_plane_, image, model, camera_to_base, true);
+    pcl_ros::transformPointCloud(projected_occupied_pc, projected_occupied_pc, base_to_odom);
   }
 
   processImageFreeSpace(image);
