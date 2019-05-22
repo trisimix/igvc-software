@@ -18,6 +18,7 @@ import utils
 # np.set_printoptions(threshold=np.nan)
 torch.set_printoptions(precision=10)
 
+#TODO: Create a functio to plot a loss and iteration graph
 
 # Training settings.
 parser = argparse.ArgumentParser(description='IGVC segmentation of lines.')
