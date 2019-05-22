@@ -144,7 +144,6 @@ criterion = F.binary_cross_entropy
 if args.cuda:
     model.cuda()
 
-
 def train(epoch):
     iters = []
     lrs = []
@@ -154,7 +153,7 @@ def train(epoch):
     model.train()
     # train loop
     for batch_idx, batch in enumerate(train_loader):
-        # prepare data
+        # prepare datant
         images = Variable(batch[0])
         targets = Variable(batch[1])
 

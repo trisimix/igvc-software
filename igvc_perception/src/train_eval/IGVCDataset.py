@@ -63,11 +63,11 @@ class IGVCDataset(data.Dataset):
             target = cv2.flip(target,1)
 
 
-        target = target[:,:,2]
+        #target = target[:,:,2]
 
         img = cv2.resize(img, (self.im_size[1],self.im_size[2]))
         target = cv2.resize(target, (self.im_size[1], self.im_size[2]))
-        target[target != 0] = 255
+        #target[target != 0] = 255
 
         # doing this so that it is consistent with all other datasets
         # to return a PIL Image
