@@ -67,10 +67,11 @@ class IGVCDataset(data.Dataset):
 
         img = cv2.resize(img, (self.im_size[1],self.im_size[2]))
         target = cv2.resize(target, (self.im_size[1], self.im_size[2]))
-        #cv2.imshow('img',img)
-        #cv2.imshow('target',target)
-        #cv2.waitKey(0)
-        #target[target != 0] = 255
+
+        target[target != 0] = 255
+        cv2.imshow('img',img)
+        cv2.imshow('target',target)
+        cv2.waitKey(0)
 
         # doing this so that it is consistent with all other datasets
         # to return a PIL Image

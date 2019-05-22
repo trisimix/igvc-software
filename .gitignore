@@ -37,6 +37,9 @@
 */.idea/
 /.idea/
 
+#VSCode
+.vscode
+
 # CMake
 */cmake-build-*/
 
@@ -50,5 +53,7 @@
 #CNN models
 /sandbox/models/
 
+#generated textures
+/igvc_gazebo/scripts/gen
 #pyc
 *.pyc
